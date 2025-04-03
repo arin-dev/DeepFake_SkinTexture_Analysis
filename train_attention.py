@@ -79,7 +79,8 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
 
             data = data.to(device)
             vaf_features = vaf_features.to(device)
-            outputs = model(data, vaf_features).squeeze(1)
+            outputs = model(data).squeeze(1)
+            # outputs = model(data, vaf_features).squeeze(1)
             
             # print(video_names)
 
@@ -105,17 +106,19 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
         print(f'Epoch {epoch+1}/{num_epochs}, Loss: {loss.item()}')
         
         # Save checkpoint every epoch with proper DataParallel handling
-        checkpoint = {
-            'epoch': epoch,
-            'model_state_dict': model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss.item(),
-        }
-        
-        save_path = f'/models/{model_name}_model_epoch_{epoch+1}.pth'
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        torch.save(checkpoint, save_path)
-        print(f'Checkpoint saved at epoch {epoch+1} to {save_path}')
+        if (epoch + 1) % 5 == 0 or epoch == 0 or (epoch + 1) == num_epochs:
+            checkpoint = {
+                'epoch': epoch,
+                'model_state_dict': model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss.item(),
+            }
+            
+            # save_path = f'/models/{model_name}_model_epoch_{epoch+1}.pth'
+            save_path = f'models/{model_name}_model_epoch_{epoch+1}.pth'
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            torch.save(checkpoint, save_path)
+            print(f'Checkpoint saved at epoch {epoch+1} to {save_path}')
 
 
 def clear_gpu_cache():
@@ -134,7 +137,8 @@ def main():
     # frame_direc = '/kaggle/input/train-output-24-reduced/train_output_24_reduced'
     # frame_direc = '/media/edward/OS/Users/arind/test_output_24/'
     frame_direc = './testing_sample_data'
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cpu'
     print("Working with device: ", device)
     
     model_name = 'two_stream_24'

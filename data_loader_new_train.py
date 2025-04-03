@@ -5,6 +5,7 @@ import os
 import dlib
 import sys
 import cv2
+import numpy as np
 # from lib.vaf_util import get_crops_landmarks
 from vaf_ext import FaceTextureAnalyzer
 from PIL import Image
@@ -52,12 +53,14 @@ class VideoDataset(Dataset):
             # First 12 frames - spatial learning with random augmentations
             if i < 12*2 and self.spatial_transform:
                 img = self.spatial_transform(img)
-
-                img2 = cv2.imread(frame_path)
+                
+                # Convert transformed PIL Image back to numpy array for VAF processing
+                img2 = np.array(img.permute(1, 2, 0)) * 255
+                img2 = cv2.cvtColor(img2.astype(np.uint8), cv2.COLOR_RGB2BGR)
                 img_rgb = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
+                
                 # Extract features
                 analyzer = FaceTextureAnalyzer()
-                # features = analyzer.extract_features(img_rgb)
                 features = analyzer._compute_energy(img_rgb)
 
                 if isinstance(features, dict):
