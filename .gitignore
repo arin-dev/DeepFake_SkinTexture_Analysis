@@ -59,6 +59,7 @@ pip-delete-this-directory.txt
 *.csv
 *.npy
 *.zip
+*.dat
 
 # OS generated files
 .DS_Store
