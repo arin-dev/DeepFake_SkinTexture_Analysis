@@ -1,0 +1,16 @@
+torch
+torchvision
+numpy
+dlib
+tqdm
+scikit-learn
+scipy
+matplotlib
+scikit-image
+facenet-pytorch
+Pillow
+pandas
+tensorboard-logger
+opencv-python
+# opencv-python-headless
+# python-cuda
