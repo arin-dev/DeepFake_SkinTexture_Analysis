@@ -64,7 +64,8 @@ class VideoDataset(Dataset):
                 features = analyzer._compute_energy(img_rgb)
 
                 if isinstance(features, dict):
-                    features = torch.tensor(list(features.values()))
+                    features = torch.from_numpy(np.array(list(features.values()), dtype=np.float32))
+                    # features = torch.tensor(list(features.values()))
 
                 vaf_features.append(features)
 

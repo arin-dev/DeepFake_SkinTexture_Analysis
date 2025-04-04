@@ -27,8 +27,8 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
         print(f"Using {torch.cuda.device_count()} GPUs!")
         model = nn.DataParallel(model, device_ids=list(range(torch.cuda.device_count())))
     
-    device = get_device_for_model()
-    model = model.to(device)
+    # device = get_device_for_model()
+    # model = model.to(device)
     
     # Load pre-trained model if path is provided
     checkpoint_path = f'models/{model_name}_model_epoch_{start_epoch}.pth'
@@ -73,13 +73,27 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
                 print("No valid data returned from loader, skipping this batch.")
                 continue
 
-            print(video_names)
-            print(type(data), data.shape)
-            print(type(vaf_features), len(vaf_features), len(vaf_features[0]))
+            # print(video_names)
+            # print(type(data), data.shape)
+            # print(type(vaf_features), len(vaf_features), len(vaf_features[0]))
 
-            data = data.to(device)
-            vaf_features = vaf_features.to(device)
-            outputs = model(data).squeeze(1)
+            data = data[:, 12*2:, :, :, :]
+            # vaf_features = vaf_features.view(-1, 24, 4)
+            # print("data shape:", data.shape)
+            # print("vaf_features shape:", vaf_features.shape)
+            data = data.float().to(device)
+            vaf_features = vaf_features.float().to(device) # Force [batch_size, 96]
+
+
+
+            # # Ensure VAF features are [batch_size, 24, 4]
+            # if vaf_features.dim() == 2:  # If flattened
+            #     vaf_features = vaf_features.view(-1, 24, 4)
+
+            # print("data shape:", data.shape)
+            # print("vaf_features shape:", vaf_features.shape)
+
+            outputs = model(data, vaf_features).squeeze(1)
             # outputs = model(data, vaf_features).squeeze(1)
             
             # print(video_names)
