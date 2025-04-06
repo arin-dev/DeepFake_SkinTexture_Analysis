@@ -28,35 +28,42 @@ class TemporalStream3DResNet(nn.Module):
 class VAFProcessor(nn.Module):
     def __init__(self):
         super(VAFProcessor, self).__init__()
-        self.conv3d = nn.Sequential(
-            # Process each feature separately
-            nn.Conv3d(1, 16, kernel_size=(3, 3, 3), padding=1),
-            nn.ReLU(),
-            nn.MaxPool3d(kernel_size=(2, 2, 2)),
-            nn.Conv3d(16, 32, kernel_size=(3, 3, 3), padding=1),
-            nn.ReLU(),
-            nn.MaxPool3d(kernel_size=(2, 2, 2)),
-            nn.Flatten(),
-            nn.Linear(32 * 6 * 32 * 32, 128),
-            nn.LayerNorm(128),
-            nn.ReLU()
-        )
+        self.feature_processors = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(3, 16, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Conv2d(16, 32, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Flatten(),
+                nn.Linear(32 * 32 * 32, 128),
+                nn.LayerNorm(128),
+                nn.ReLU()
+            ) for _ in range(4)  # One processor per feature
+        ])
 
     def forward(self, x):
         # Input: [B, 4, 128, 128, 3, 24]
         batch_size = x.shape[0]
         
-        # Reshape to process each feature separately
-        x = x.permute(0, 1, 4, 5, 2, 3)  # [B,4,3,24,128,128]
-        x = x.reshape(-1, 1, 24, 128, 128)  # [B*4*3,1,24,128,128]
+        # Process each feature independently
+        processed_features = []
+        for i in range(4):  # For each feature
+            # Get all frames for this feature [B,128,128,3,24]
+            feature = x[:, i]
+            # Average across time dimension [B,128,128,3]
+            feature = feature.mean(dim=3)
+            # Permute to [B,3,128,128]
+            feature = feature.permute(0, 3, 1, 2)
+            # Process through feature-specific CNN
+            processed = self.feature_processors[i](feature)
+            processed_features.append(processed)
         
-        # Process through conv3d
-        x = self.conv3d(x)
-        
-        # Reshape back and average across features and channels
-        x = x.view(batch_size, 4, 3, -1)  # [B,4,3,128]
-        x = x.mean(dim=[1,2])  # [B,128]
-        return x
+        # Combine features [B,4,128]
+        x = torch.stack(processed_features, dim=1)
+        # Average across features [B,128]
+        return x.mean(dim=1)
 
 class TwoStreamNetworkTransferLearning(nn.Module):
     def __init__(self):
@@ -79,24 +86,27 @@ class TwoStreamNetworkTransferLearning(nn.Module):
         )
 
     def forward(self, frames, vaf_features):
-        # Process VAF Features [B,4,128,128,3,24]
-        vaf_processed = self.vaf_processor(vaf_features)
+        # Process VAF Features [B,24,4,128,128,3] -> [B,4,128,128,3,24]
+        vaf_processed = self.vaf_processor(vaf_features.permute(0, 2, 3, 4, 1, 5))
         
-        # Process Temporal Stream [B,C,T,H,W]
-        temporal_input = frames.permute(0, 2, 1, 3, 4)
-        temporal_features = self.temporal_stream(temporal_input)
+        # Temporal stream processing
+        temporal_features = self.temporal_stream(frames.permute(0, 2, 1, 3, 4))
+        
+        # Ensure correct dimensions for attention (batch, seq_len, features)
+        vaf_processed = vaf_processed.unsqueeze(1)  # [B,1,128]
+        temporal_features = temporal_features.unsqueeze(1)  # [B,1,128]
         
         # Cross-Modal Attention
         attended_features, _ = self.cross_attention(
-            query=vaf_processed.unsqueeze(1),
-            key=temporal_features.unsqueeze(1),
-            value=temporal_features.unsqueeze(1)
+            query=vaf_processed,  # [B,1,128]
+            key=temporal_features,  # [B,1,128]
+            value=temporal_features  # [B,1,128]
         )
         
         # Combine Features
         combined = torch.cat([
-            temporal_features,
-            attended_features.squeeze(1)
-        ], dim=1)
+            temporal_features.squeeze(1),  # [B,128]
+            attended_features.squeeze(1)   # [B,128]
+        ], dim=1)  # [B,256]
         
         return self.prediction_head(combined)

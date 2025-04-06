@@ -80,9 +80,9 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
             data = data[:, 12*2:, :, :, :]
             # vaf_features = vaf_features.view(-1, 24, 4)
             # print("data shape:", data.shape)
-            # print("vaf_features shape:", vaf_features.shape)
-            data = data.float().to(device)
-            vaf_features = vaf_features.float().to(device) # Force [batch_size, 96]
+            print("vaf_features shape:", vaf_features.shape)
+            # data = data.float().to(device)
+            # vaf_features = vaf_features.float().to(device)
 
 
 
