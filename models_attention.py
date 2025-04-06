@@ -78,10 +78,10 @@ class TwoStreamNetworkTransferLearning(nn.Module):
         )
         
         self.prediction_head = nn.Sequential(
-            nn.Linear(256, 128),
+            nn.Linear(256, 64),  # Reduced capacity
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(128, 1),
+            nn.Linear(64, 1),
             nn.Sigmoid()
         )
 
@@ -92,21 +92,17 @@ class TwoStreamNetworkTransferLearning(nn.Module):
         # Temporal stream processing
         temporal_features = self.temporal_stream(frames.permute(0, 2, 1, 3, 4))
         
-        # Ensure correct dimensions for attention (batch, seq_len, features)
-        vaf_processed = vaf_processed.unsqueeze(1)  # [B,1,128]
-        temporal_features = temporal_features.unsqueeze(1)  # [B,1,128]
-        
-        # Cross-Modal Attention
+        # Cross-Attention
         attended_features, _ = self.cross_attention(
-            query=vaf_processed,  # [B,1,128]
-            key=temporal_features,  # [B,1,128]
-            value=temporal_features  # [B,1,128]
+            query=vaf_processed.unsqueeze(1),  # [B,1,128]
+            key=temporal_features.unsqueeze(1),  # [B,1,128]
+            value=temporal_features.unsqueeze(1)  # [B,1,128]
         )
         
-        # Combine Features
+        # Combine VAF + Attended features
         combined = torch.cat([
-            temporal_features.squeeze(1),  # [B,128]
-            attended_features.squeeze(1)   # [B,128]
+            vaf_processed,  # Original VAF [B,128]
+            attended_features.squeeze(1)  # Attended [B,128]
         ], dim=1)  # [B,256]
         
         return self.prediction_head(combined)
