@@ -28,12 +28,29 @@ class VideoDataset(Dataset):
 
         # Generate consistent transform params for this batch's temporal frames
         if self.temporal_transform:
+            erase_h = int(128 * (0.05 + torch.rand(1) * 0.15))  # 0.05-0.20 of 128px (6-25px)
+            erase_w = int(erase_h * (0.5 + torch.rand(1) * 2.0))  # 0.5-2.5 ratio
+            erase_i = torch.randint(0, 128 - erase_h, (1,)).item()
+            erase_j = torch.randint(0, 128 - erase_w, (1,)).item()
+
             temp_params = {
                 'flip': torch.rand(1) > 0.5,
                 'rotation': torch.randint(-10, 10, (1,)).item(),
                 'brightness': 1 + (torch.rand(1) - 0.5) * 0.2,
-                'contrast': 1 + (torch.rand(1) - 0.5) * 0.2
+                'contrast': 1 + (torch.rand(1) - 0.5) * 0.2,
+                'erase': torch.rand(1) < 0.5,
+                'erase_i': erase_i,
+                'erase_j': erase_j,
+                'erase_h': erase_h,
+                'erase_w': erase_w
             }
+        # if self.temporal_transform:
+        #     temp_params = {
+        #         'flip': torch.rand(1) > 0.5,
+        #         'rotation': torch.randint(-10, 10, (1,)).item(),
+        #         'brightness': 1 + (torch.rand(1) - 0.5) * 0.2,
+        #         'contrast': 1 + (torch.rand(1) - 0.5) * 0.2
+        #     }
         
         batch_images = []
         vaf_features = []
@@ -79,6 +96,17 @@ class VideoDataset(Dataset):
                 img = transforms.functional.adjust_brightness(img, temp_params['brightness'])
                 img = transforms.functional.adjust_contrast(img, temp_params['contrast'])
                 img = transforms.functional.to_tensor(img)
+
+                if temp_params['erase']:
+                    img = transforms.functional.erase(
+                        img,
+                        i=temp_params['erase_i'],
+                        j=temp_params['erase_j'],
+                        h=temp_params['erase_h'],
+                        w=temp_params['erase_w'],
+                        v=0,  # erase value (0 for black)
+                        inplace=False
+                    )
 
             if img.shape[0] != 3 or img.shape[1] != 128 or img.shape[2] != 128:
                 continue

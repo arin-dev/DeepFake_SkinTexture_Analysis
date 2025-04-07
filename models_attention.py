@@ -30,7 +30,7 @@ class VAFProcessor(nn.Module):
         super(VAFProcessor, self).__init__()
         self.feature_processors = nn.ModuleList([
             nn.Sequential(
-                nn.Conv2d(3, 16, kernel_size=3, padding=1),
+                nn.Conv2d(1, 16, kernel_size=3, padding=1),
                 nn.ReLU(),
                 nn.MaxPool2d(2),
                 nn.Conv2d(16, 32, kernel_size=3, padding=1),
@@ -44,18 +44,18 @@ class VAFProcessor(nn.Module):
         ])
 
     def forward(self, x):
-        # Input: [B, 4, 128, 128, 3, 24]
+        # Input: [B, 4, 128, 128, 24]
         batch_size = x.shape[0]
         
         # Process each feature independently
         processed_features = []
         for i in range(4):  # For each feature
-            # Get all frames for this feature [B,128,128,3,24]
+            # Get all frames for this feature [B,128,128,24]
             feature = x[:, i]
-            # Average across time dimension [B,128,128,3]
-            feature = feature.mean(dim=3)
-            # Permute to [B,3,128,128]
-            feature = feature.permute(0, 3, 1, 2)
+            # Average across time dimension [B,128,128]
+            feature = feature.mean(dim=2)
+            # Add channel dimension [B,1,128,128]
+            feature = feature.unsqueeze(1)
             # Process through feature-specific CNN
             processed = self.feature_processors[i](feature)
             processed_features.append(processed)
@@ -86,8 +86,8 @@ class TwoStreamNetworkTransferLearning(nn.Module):
         )
 
     def forward(self, frames, vaf_features):
-        # Process VAF Features [B,24,4,128,128,3] -> [B,4,128,128,3,24]
-        vaf_processed = self.vaf_processor(vaf_features.permute(0, 2, 3, 4, 1, 5))
+        # Process VAF Features [B,24,4,128,128] -> [B,4,128,128,24]
+        vaf_processed = self.vaf_processor(vaf_features.permute(0, 2, 3, 1, 4))
         
         # Temporal stream processing
         temporal_features = self.temporal_stream(frames.permute(0, 2, 1, 3, 4))

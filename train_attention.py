@@ -21,6 +21,17 @@ def get_device_for_model():
             return torch.device(f'cuda:{i}')
     raise MemoryError("All GPUs are out of memory!")
 
+def save_input_images(data, video_name):
+    """Save input images for verification"""
+    print("Saving input images for verification")
+    os.makedirs(f'input_images_{video_name}', exist_ok=True)
+    data = data.cpu().numpy()  # Convert to numpy [1,24,3,128,128]
+    
+    for frame_idx in range(data.shape[1]):  # 24 frames
+        img = data[0, frame_idx].transpose(1, 2, 0)  # [H,W,C] from [C,H,W]
+        img = (img * 255).astype(np.uint8)
+        cv2.imwrite(f'input_images_{video_name}/frame_{frame_idx}.png', img)
+
 def visualize_vaf_features(vaf_features, video_name):
     print("Inside Visualizer")
 
@@ -94,7 +105,10 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
             # print(type(data), data.shape)
             # print(type(vaf_features), len(vaf_features), len(vaf_features[0]))
 
-            data = data[:, 12*2:, :, :, :]
+            data = data[:, 12*2:, :, :, :]  # Reduces to [1,24,3,128,128]
+            # save_input_images(data, video_names[0])  # Save input images for verification
+            
+            # print(vaf_features.shape)
             # vaf_features = vaf_features.view(-1, 24, 4)
             # print("data shape:", data.shape)
             # print("vaf_features shape:", vaf_features.shape)
