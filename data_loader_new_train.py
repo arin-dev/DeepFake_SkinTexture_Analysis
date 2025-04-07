@@ -61,7 +61,8 @@ class VideoDataset(Dataset):
                 
                 # Extract features
                 analyzer = FaceTextureAnalyzer()
-                features = analyzer._compute_energy(img_rgb)
+                # features = analyzer._compute_energy(img_rgb)
+                features = analyzer.extract_features(img_rgb)
 
                 if isinstance(features, dict):
                     features = torch.from_numpy(np.array(list(features.values()), dtype=np.float32))
@@ -108,7 +109,8 @@ def get_data_loaders(frame_direc, batch_size=1):
         ], p=0.8),
         transforms.RandomGrayscale(p=0.2),
         transforms.ToTensor(),
-        transforms.RandomErasing(p=0.8, scale=(0.02, 0.20), ratio=(0.5, 2.0), inplace=True),
+        # transforms.RandomErasing(p=0.8, scale=(0.02, 0.20), ratio=(0.5, 2.0), inplace=True),
+        transforms.RandomErasing(p=0.5, scale=(0.02, 0.10), ratio=(0.5, 2.0), inplace=True),
     ])
 
     # return transforms.Compose([

@@ -36,6 +36,9 @@ def test_model(frame_direc, device, batch_size, threshold=0.5):
             model.module.load_state_dict(state_dict)
         else:
             model.load_state_dict(state_dict)
+    else:
+        print("No model found")
+        return
     
     model.eval()
 
@@ -64,7 +67,7 @@ def test_model(frame_direc, device, batch_size, threshold=0.5):
                 for video_name in video_names
             ]).float().to(device)
             
-            predicted = (outputs >= threshold).float()
+            predicted = ( (outputs >= threshold) | (outputs < 0.1) ).float()
             total += labels_tensor.size(0)
             correct += (predicted == labels_tensor).sum().item()
 
@@ -88,13 +91,14 @@ def reset_gpu():
         print("No GPU available")
 
 if __name__ == "__main__":
-    reset_gpu()
+    # reset_gpu()
     parser = argparse.ArgumentParser()
     parser.add_argument('--threshold', type=float, default=0.5, help='Threshold for binary classification')
     args = parser.parse_args()
 
     # frame_direc = '/media/edward/OS/Users/arind/test_output_24'
     frame_direc = '/media/edward/OS/Users/arind/train_output_24/not_training_on_this'
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cpu'
 
-    test_model(frame_direc, device, 1, args.threshold)
+    test_model(frame_direc, device, 10, args.threshold)

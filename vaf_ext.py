@@ -20,6 +20,9 @@ class FaceTextureAnalyzer:
         return masks
     
     def _preprocess(self, img):
+        # gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        # gray = cv2.GaussianBlur(gray, (3,3), 0)  # More precise than bilateral for small images
+        # return gray - cv2.blur(gray, (3,3)) 
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         gray = cv2.bilateralFilter(gray, 9, 75, 75)
         kernel = np.ones((self.law_size, self.law_size), np.float32)/(self.law_size**2)
@@ -50,20 +53,21 @@ class FaceTextureAnalyzer:
         return {name: cv2.filter2D(img, -1, kernel) 
                 for name, kernel in self.law_masks.items()}
     
-    # def extract_features(self, image_array):
-    #     """Extract texture features from image array (RGB format)
-    #     Returns: 16-dimensional feature vector (mean, std, 25p, 75p for each energy map)
-    #     """
-    #     preprocessed = self._preprocess(image_array)
-    #     energy = self._compute_energy(preprocessed)
+    def extract_features(self, image_array):
+        """Extract texture features from image array (RGB format)
+        Returns: 16-dimensional feature vector (mean, std, 25p, 75p for each energy map)
+        """
+        preprocessed = self._preprocess(image_array)
+        energy = self._compute_energy(preprocessed)
         
-    #     features = []
-    #     for e_map in energy.values():
-    #         features.extend([
-    #             np.mean(e_map),
-    #             np.std(e_map),
-    #             np.percentile(e_map, 25),
-    #             np.percentile(e_map, 75)
-    #         ])
+        return energy
+        # features = []
+        # for e_map in energy.values():
+        #     features.extend([
+        #         np.mean(e_map),
+        #         np.std(e_map),
+        #         np.percentile(e_map, 25),
+        #         np.percentile(e_map, 75)
+        #     ])
         
-    #     return np.array(features)
+        # return np.array(features)

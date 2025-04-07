@@ -7,6 +7,9 @@ from data_loader_new_train import get_data_loaders
 import json
 import os
 import time
+import matplotlib.pyplot as plt
+import numpy as np
+import cv2
 
 def get_device_for_model():
     # Check memory usage on all available GPUs
@@ -17,6 +20,20 @@ def get_device_for_model():
         if mem_alloc < mem_total * 0.95:
             return torch.device(f'cuda:{i}')
     raise MemoryError("All GPUs are out of memory!")
+
+def visualize_vaf_features(vaf_features, video_name):
+    print("Inside Visualizer")
+
+    # Save raw features for local visualization
+    features = vaf_features.cpu().numpy()  # Take first in batch [24,4,128,128,3]
+    
+    # Save each feature map as separate images
+    os.makedirs(f'vaf_vis_{video_name}', exist_ok=True)
+    for frame_idx in range(features.shape[0]):  # 24 frames
+        for feat_idx in range(features.shape[1]):  # 4 features
+            img = features[frame_idx, feat_idx]  # [128,128,3]
+            img = (img * 255).astype(np.uint8)  # Convert to 0-255 range
+            cv2.imwrite(f'vaf_vis_{video_name}/frame_{frame_idx}_feat_{feat_idx}.png', img)
 
 def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, start_epoch=0):
     print("Entering to train data!")
@@ -80,11 +97,12 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
             data = data[:, 12*2:, :, :, :]
             # vaf_features = vaf_features.view(-1, 24, 4)
             # print("data shape:", data.shape)
-            print("vaf_features shape:", vaf_features.shape)
-            # data = data.float().to(device)
-            # vaf_features = vaf_features.float().to(device)
+            # print("vaf_features shape:", vaf_features.shape)
+            data = data.float().to(device)
+            vaf_features = vaf_features.float().to(device)
 
-
+            # Visualize VAF features
+            # visualize_vaf_features(vaf_features[0], video_names[0])
 
             # # Ensure VAF features are [batch_size, 24, 4]
             # if vaf_features.dim() == 2:  # If flattened
