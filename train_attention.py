@@ -32,35 +32,35 @@ def save_input_images(data, video_name):
         img = (img * 255).astype(np.uint8)
         cv2.imwrite(f'input_images_{video_name}/frame_{frame_idx}.png', img)
 
-def visualize_vaf_features(vaf_features, video_name):
-    print("Inside Visualizer")
+# def visualize_vaf_features(vaf_features, video_name):
+#     print("Inside Visualizer")
 
-    # Save raw features for local visualization
-    features = vaf_features.cpu().numpy()  # Take first in batch [24,4,128,128,3]
+#     # Save raw features for local visualization
+#     features = vaf_features.cpu().numpy()  # Take first in batch [24,4,128,128,3]
     
-    # Save each feature map as separate images
-    os.makedirs(f'vaf_vis_{video_name}', exist_ok=True)
-    for frame_idx in range(features.shape[0]):  # 24 frames
-        for feat_idx in range(features.shape[1]):  # 4 features
-            img = features[frame_idx, feat_idx]  # [128,128,3]
-            img = (img * 255).astype(np.uint8)  # Convert to 0-255 range
-            cv2.imwrite(f'vaf_vis_{video_name}/frame_{frame_idx}_feat_{feat_idx}.png', img)
+#     # Save each feature map as separate images
+#     os.makedirs(f'vaf_vis_{video_name}', exist_ok=True)
+#     for frame_idx in range(features.shape[0]):  # 24 frames
+#         for feat_idx in range(features.shape[1]):  # 4 features
+#             img = features[frame_idx, feat_idx]  # [128,128,3]
+#             img = (img * 255).astype(np.uint8)  # Convert to 0-255 range
+#             cv2.imwrite(f'vaf_vis_{video_name}/frame_{frame_idx}_feat_{feat_idx}.png', img)
 
 def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, start_epoch=0):
     print("Entering to train data!")
     model = TwoStreamNetworkTransferLearning()
 
     # Use DataParallel with all available GPUs
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs!")
-        model = nn.DataParallel(model, device_ids=list(range(torch.cuda.device_count())))
+    # if torch.cuda.device_count() > 1:
+    #     print(f"Using {torch.cuda.device_count()} GPUs!")
+    #     model = nn.DataParallel(model, device_ids=list(range(torch.cuda.device_count())))
     
     # device = get_device_for_model()
-    # model = model.to(device)
+    model = model.to(device)
     
     # Load pre-trained model if path is provided
     checkpoint_path = f'models/{model_name}_model_epoch_{start_epoch}.pth'
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=0.0001) ## reduced lr from 0.001
     
     if os.path.exists(checkpoint_path):
         print(f"Loading model checkpoint from {checkpoint_path}")
@@ -81,7 +81,8 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
 
     print("Opening Label.json!")
     # with open('/kaggle/input/train-data-new/labels.json', 'r') as file:
-    with open('labels.json', 'r') as file:
+    with open('new_training_set.json', 'r') as file:
+    # with open('OLD_12/real_labels_12.json', 'r') as file:
         label_map = json.load(file)
 
     model.train()
@@ -105,7 +106,7 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
             # print(type(data), data.shape)
             # print(type(vaf_features), len(vaf_features), len(vaf_features[0]))
 
-            data = data[:, 12*2:, :, :, :]  # Reduces to [1,24,3,128,128]
+            # data = data[:, 12*2:, :, :, :]  # Reduces to [1,24,3,128,128]
             # save_input_images(data, video_names[0])  # Save input images for verification
             
             # print(vaf_features.shape)
@@ -143,7 +144,7 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
                 optimizer.step()
                 optimizer.zero_grad()
             
-            if (batch_count + 1) % 20 == 0:
+            if (batch_count + 1) % 40 == 0 or (batch_count+1) == len(train_loader):
                 epoch_time = time.time() - start_time
                 start_time = time.time()
                 print(f'Batch {batch_count+1}/{len(train_loader)} // {epoch+1}/{num_epochs}, Loss: {loss.item()}, Time: {epoch_time}')
@@ -179,19 +180,20 @@ def clear_gpu_cache():
 # Usage
 
 def main():
-    num_epochs = 1
+    num_epochs = 35
     # frame_direc = '/kaggle/input/train-output-24-reduced/train_output_24_reduced'
     # frame_direc = '/media/edward/OS/Users/arind/test_output_24/'
-    frame_direc = './testing_sample_data'
-    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    device = 'cpu'
+    frame_direc = '/media/edward/OS/Users/arind/new_training_set/'
+    # frame_direc = './testing_sample_data'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # device = 'cpu'
     print("Working with device: ", device)
     
-    model_name = 'two_stream_24'
-    start_epoch = 0  # Set this to the epoch you want to continue from
+    model_name = 'two_stream_24_semi_supervised'
+    start_epoch = 25  # Set this to the epoch you want to continue from
     
     clear_gpu_cache()
-    train_model(num_epochs, frame_direc, device, 1, model_name, start_epoch)
+    train_model(num_epochs, frame_direc, device, 2, model_name, start_epoch)
 
 if __name__ == "__main__":
     main()

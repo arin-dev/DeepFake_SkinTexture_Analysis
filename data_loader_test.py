@@ -6,11 +6,19 @@ import cv2
 import numpy as np
 from PIL import Image
 from vaf_ext import FaceTextureAnalyzer
+import random
 
 class VideoDatasetTest(Dataset):
-    def __init__(self, frame_direc, transform=None):
+    def __init__(self, frame_direc, transform=None, num_subfolders=None):
         self.frame_direc = frame_direc
-        self.subfolders = sorted(os.listdir(frame_direc))
+        all_subfolders = sorted(os.listdir(frame_direc))
+        
+        # Select random subfolders if num_subfolders is specified
+        if num_subfolders is not None and num_subfolders < len(all_subfolders):
+            self.subfolders = random.sample(all_subfolders, num_subfolders)
+        else:
+            self.subfolders = all_subfolders
+            
         self.transform = transform
 
     def __len__(self):
@@ -41,13 +49,10 @@ class VideoDatasetTest(Dataset):
                 
                 # Extract VAF features
                 analyzer = FaceTextureAnalyzer()
-                features = analyzer._compute_energy(img_rgb)
+                features = analyzer.extract_features(img_rgb)
                 if isinstance(features, dict):
                     features = torch.from_numpy(np.array(list(features.values()), dtype=np.float32))
                 vaf_features.append(features)
-            
-            # elif i >= 12*2 and self.transform:
-            #     img = self.transform(img)
 
             if img.shape[0] != 3 or img.shape[1] != 128 or img.shape[2] != 128:
                 continue
@@ -60,15 +65,11 @@ class VideoDatasetTest(Dataset):
         video_name = '_'.join(self.subfolders[idx].split('_')[:-1])
         return torch.stack(batch_images), video_name, torch.stack(vaf_features)
 
-def get_test_loaders(frame_direc, batch_size=1):
+def get_test_loaders(frame_direc, batch_size=1, num_subfolders=None):
     transform = transforms.Compose([
         transforms.Resize((128, 128)),
         transforms.ToTensor(),
     ])
 
-    dataset = VideoDatasetTest(frame_direc, transform)
+    dataset = VideoDatasetTest(frame_direc, transform, num_subfolders)
     return DataLoader(dataset, batch_size=batch_size, shuffle=False)
-
-
-
-

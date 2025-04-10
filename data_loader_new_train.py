@@ -107,11 +107,11 @@ class VideoDataset(Dataset):
                         v=0,  # erase value (0 for black)
                         inplace=False
                     )
+                batch_images.append(img)
 
             if img.shape[0] != 3 or img.shape[1] != 128 or img.shape[2] != 128:
                 continue
 
-            batch_images.append(img)
 
         if len(batch_images) < 24:
             return None, None, None
