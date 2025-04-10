@@ -68,60 +68,89 @@ import csv
 import numpy as np
 import argparse
 from sklearn.cluster import KMeans
-from tensorflow.keras.applications import VGG16
-from tensorflow.keras.preprocessing import image
-from tensorflow.keras.applications.vgg16 import preprocess_input
 import cv2
+import torch
+import torch.nn as nn
+from vaf_ext import FaceTextureAnalyzer
 
-def extract_deep_features(img_path):
-    """Extract features using CPU-only mode"""
-    import tensorflow as tf
-    with tf.device('/CPU:0'):  # Force CPU usage
-        model = VGG16(weights='imagenet', include_top=False, pooling='avg')
-        img = image.load_img(img_path, target_size=(224, 224))
-        x = image.img_to_array(img)
-        x = np.expand_dims(x, axis=0)
-        x = preprocess_input(x)
-        return model.predict(x, verbose=0).flatten()
+class FeatureProcessor(nn.Module):
+    """Mimics the feature processing from models_attention.py"""
+    def __init__(self):
+        super().__init__()
+        self.processor = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Flatten(),
+            nn.Linear(32 * 32 * 32, 128),
+            nn.LayerNorm(128),
+            nn.ReLU()
+        )
+    
+    def forward(self, x):
+        return self.processor(x)
+
+def extract_texture_features(img_paths):
+    """Extract texture features using FaceTextureAnalyzer with proper CNN processing"""
+    analyzer = FaceTextureAnalyzer()
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    processor = FeatureProcessor().to(device)
+    
+    features = []
+    for img_path in img_paths:
+        img = cv2.imread(img_path)
+        if img is None:
+            continue
+            
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        energy = analyzer.extract_features(img_rgb)
+        
+        feature_vector = []
+        for map_name in ['L3E3', 'E3S3', 'S3S3', 'Combined']:
+            feat_map = energy[map_name]
+            if len(feat_map.shape) == 2:
+                # Resize to match expected input size (128x128)
+                feat_map = cv2.resize(feat_map, (128, 128))
+                feat_tensor = torch.from_numpy(feat_map).float().unsqueeze(0).unsqueeze(0).to(device)
+                
+                # Process through CNN
+                with torch.no_grad():
+                    processed = processor(feat_tensor)
+                feature_vector.extend(processed.cpu().numpy().flatten())
+        
+        if feature_vector:
+            features.append(feature_vector)
+    
+    return np.array(features) if features else None
 
 def classify_frames(folder_path):
-    features = []
+    """Classify frames using KMeans clustering on processed features"""
     frame_paths = []
-    
-    # Get first 24 frames sorted by name
     frames = sorted([f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])[:24]
+    frame_paths = [os.path.join(folder_path, f) for f in frames]
     
-    for frame_name in frames:
-        frame_path = os.path.join(folder_path, frame_name)
-        try:
-            # Extract deep features
-            feature = extract_deep_features(frame_path)
-            features.append(feature)
-            frame_paths.append(frame_name)
-        except Exception as e:
-            print(f"Skipping {frame_name}: {str(e)}")
-            continue
-    
-    if len(features) < 2:  # Need at least 2 samples for clustering
+    features = extract_texture_features(frame_paths)
+    if features is None or len(features) < 2:
         return None
         
-    features = np.array(features)
-    
-    # Cluster using KMeans
-    kmeans = KMeans(n_clusters=2, random_state=42)
+    # Use KMeans++ initialization for better clustering
+    kmeans = KMeans(n_clusters=2, init='k-means++', random_state=42)
     labels = kmeans.fit_predict(features)
     
-    # Prepare results
     return {
         'folder': os.path.basename(folder_path),
-        'classification': f'cluster_{np.argmax(np.bincount(labels))}',
+        'classification': int(np.argmax(np.bincount(labels))),
         'frame_details': {
-            frame_paths[i]: f'cluster_{label}' 
+            frame_paths[i]: int(label) 
             for i, label in enumerate(labels)
         }
     }
 
 def process_video_frames(root_folder):
+    """Process all video frame folders in root directory"""
     classifications = {}
     csv_data = []
     
@@ -136,11 +165,11 @@ def process_video_frames(root_folder):
             csv_data.append([subfolder, result['classification']])
     
     # Save to JSON
-    with open('vaf_classification.json', 'w') as f:
+    with open('vaf_classification_300.json', 'w') as f:
         json.dump(classifications, f, indent=2)
     
     # Save to CSV
-    with open('vaf_classification.csv', 'w', newline='') as f:
+    with open('vaf_classification_300.csv', 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['folder', 'classification'])
         writer.writerows(csv_data)
