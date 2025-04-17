@@ -27,7 +27,8 @@ def test_model(frame_direc, device, batch_size, threshold=0.5):
     model = model.to(device)
     
     # checkpoint_path = 'two_stream_24_model_epoch_5.pth'
-    checkpoint_path = 'models/two_stream_24_semi_supervised_model_epoch_35.pth'
+    # checkpoint_path = 'models/two_stream_24_semi_supervised_model_epoch_35.pth'
+    checkpoint_path = 'models/two_stream_24_unsupervised_model_epoch_50.pth'
     if os.path.exists(checkpoint_path):
         print(f"Loading model checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -46,8 +47,9 @@ def test_model(frame_direc, device, batch_size, threshold=0.5):
     print("Opening Label.json!")
     # with open('real_labels.json', 'r') as file:
     # with open('real_labels_not_used.json', 'r') as file:
+    with open('ntot.json', 'r') as file:
     # with open('train_real_new.json', 'r') as file:
-    with open('for_new_test_set.json', 'r') as file:
+    # with open('for_new_test_set.json', 'r') as file:
         label_map = json.load(file)
 
     correct = 0
@@ -120,7 +122,8 @@ if __name__ == "__main__":
 
     # frame_direc = '/media/edward/OS/Users/arind/test_output_24'
     # frame_direc = '/media/edward/OS/Users/arind/train_output_24/'
-    frame_direc = '/media/edward/OS/Users/arind/train_output_24_reduced'
+    # frame_direc = '/media/edward/OS/Users/arind/train_output_24_reduced'
+    frame_direc = '/media/edward/OS/Users/arind/train_output_24_not_training_on_this'
     # device = 'cuda' if torch.cuda.is_available() else 'cpu'
     device = 'cpu'
 

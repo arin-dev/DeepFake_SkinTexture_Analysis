@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 from models_attention import TwoStreamNetworkTransferLearning
-from data_loader_new_train import get_data_loaders
+from data_loader_us_train import get_data_loaders
 # from vaf_ext.py import 
 import json
 import os
@@ -81,7 +81,8 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
 
     print("Opening Label.json!")
     # with open('/kaggle/input/train-data-new/labels.json', 'r') as file:
-    with open('new_training_set.json', 'r') as file:
+    # with open('new_training_set.json', 'r') as file:
+    with open('reduced_labels_clustering.json', 'r') as file:
     # with open('OLD_12/real_labels_12.json', 'r') as file:
         label_map = json.load(file)
 
@@ -92,12 +93,12 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
     start_time = time.time()
     
     for epoch in range(start_epoch, num_epochs):
-        train_loader = get_data_loaders(frame_direc, batch_size=batch_size)
+        train_loader = get_data_loaders(frame_direc, label_map, num_samples_per_class=200, batch_size=batch_size)
         
         batch_count = 0
         optimizer.zero_grad()
         
-        for i, (data, video_names, vaf_features) in enumerate(train_loader):
+        for i, (data, video_names, vaf_features, l) in enumerate(train_loader):
             if data is None:
                 print("No valid data returned from loader, skipping this batch.")
                 continue
@@ -144,7 +145,7 @@ def train_model(num_epochs, frame_direc, device, batch_size=1, model_name=None, 
                 optimizer.step()
                 optimizer.zero_grad()
             
-            if (batch_count + 1) % 40 == 0 or (batch_count+1) == len(train_loader):
+            if (batch_count + 1) % 50 == 0 or (batch_count+1) == len(train_loader):
                 epoch_time = time.time() - start_time
                 start_time = time.time()
                 print(f'Batch {batch_count+1}/{len(train_loader)} // {epoch+1}/{num_epochs}, Loss: {loss.item()}, Time: {epoch_time}')
@@ -182,15 +183,15 @@ def clear_gpu_cache():
 def main():
     num_epochs = 50
     # frame_direc = '/kaggle/input/train-output-24-reduced/train_output_24_reduced'
-    # frame_direc = '/media/edward/OS/Users/arind/test_output_24/'
-    frame_direc = '/media/edward/OS/Users/arind/new_training_set/'
+    frame_direc = '/media/edward/OS/Users/arind/train_output_24_reduced/'
+    # frame_direc = '/media/edward/OS/Users/arind/new_training_set/'
     # frame_direc = './testing_sample_data'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # device = 'cpu'
     print("Working with device: ", device)
     
-    model_name = 'two_stream_24_semi_supervised'
-    start_epoch = 35  # Set this to the epoch you want to continue from
+    model_name = 'two_stream_24_unsupervised'
+    start_epoch = 20  # Set this to the epoch you want to continue from
     
     clear_gpu_cache()
     train_model(num_epochs, frame_direc, device, 2, model_name, start_epoch)
